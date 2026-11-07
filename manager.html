@@ -43,6 +43,11 @@ th{background:#0f172a;position:sticky;top:0}
 .bulk-card{background:#101b30;margin:14px 0;border:1px solid #3b4b63}
 .bulk-card select{min-width:170px}
 #bulkMsg{margin-bottom:0}
+.shift-legend{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+.shift-legend span{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700}
+.shift-legend .legend-evening{background:#0284c7;color:#fff}
+.shift-legend .legend-morning{background:#ea580c;color:#fff}
+.shift-legend .legend-off{background:#64748b;color:#fff}
 @media(max-width:600px){
   header{padding:14px}
   .wrap{padding:14px}
@@ -107,6 +112,11 @@ th{background:#0f172a;position:sticky;top:0}
     </div>
 
     <p class="muted">اضغط على مناوبة أي يوم لتغييرها بالتتابع: مسائي ← صباحي ← إجازة.</p>
+    <div class="shift-legend" aria-label="دليل ألوان المناوبات">
+      <span class="legend-evening">م — مسائي</span>
+      <span class="legend-morning">ص — صباحي</span>
+      <span class="legend-off">off — إجازة</span>
+    </div>
 
     <div class="card bulk-card">
       <h2>🔄 تعديل دوام موظف طوال الشهر</h2>
