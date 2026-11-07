@@ -154,17 +154,16 @@
 
         ${Array.from({ length: count }, (_, i) => `
           <th>
-            ${i + 1}
-            <br>
-            <small>
-              ${weekdays[
-                new Date(
-                  Number(month.slice(0, 4)),
-                  Number(month.slice(5, 7)) - 1,
-                  i + 1
-                ).getDay()
-              ].slice(0, 1)}
-            </small>
+            ${i+1}
+<small style="font-size:10px;color:#a7c5e8;font-weight:600">
+  ${weekdays[
+    new Date(
+      Number(month.slice(0, 4)),
+      Number(month.slice(5, 7)) - 1,
+      i + 1
+    ).getDay()
+  ]}
+</small>
           </th>
         `).join("")}
       </tr>
