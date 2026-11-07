@@ -189,20 +189,24 @@
 
           const value = record?.shift || "—";
 
-          const cls =
-            value === "ص" ? "shift-s" :
-            value === "م" ? "shift-m" :
-            value === "off" ? "shift-off" : "";
+          const shiftStyle =
+            value === "م"
+              ? "background:#0284c7;color:#fff;"
+              : value === "ص"
+                ? "background:#ea580c;color:#fff;"
+                : value === "off"
+                  ? "background:#64748b;color:#fff;"
+                  : "background:#334155;color:#cbd5e1;";
 
           return `
             <td class="${editable ? "" : "day"}">
               <span
-                class="${cls}"
+                class="shift-badge"
                 ${editable
                   ? `data-emp="${esc(emp.id)}"
                      data-day="${day}"
-                     style="cursor:pointer;padding:5px 7px;border-radius:6px"`
-                  : `style="padding:5px 7px;border-radius:6px"`
+                     style="${shiftStyle}cursor:pointer;display:inline-block;min-width:34px;padding:5px 7px;border-radius:7px;font-weight:700;"`
+                  : `style="${shiftStyle}display:inline-block;min-width:34px;padding:5px 7px;border-radius:7px;font-weight:700;"`
                 }
               >${esc(value)}</span>
             </td>
@@ -228,12 +232,74 @@
     if (!target) return;
 
     target.innerHTML = employees.map(emp => `
-      <article class="emp">
+      <article class="emp" style="background:#101b30;border:1px solid #334155;border-radius:12px;padding:13px;">
         <b>${esc(emp.name)}</b>
         <div class="muted">${esc(emp.office)}</div>
         <p>${esc(emp.role)}</p>
+        ${isManager ? `
+          <button
+            type="button"
+            class="secondary"
+            data-edit-employee="${esc(emp.id)}"
+            style="margin-top:8px;width:100%;"
+          >تعديل بيانات الموظف</button>
+        ` : ""}
       </article>
     `).join("");
+
+    if (isManager) {
+      target.querySelectorAll("[data-edit-employee]").forEach(button => {
+        button.addEventListener("click", () => {
+          editEmployee(button.dataset.editEmployee);
+        });
+      });
+    }
+  }
+
+  // تعديل اسم الموظف ومكتبه والمهام والبرامج المكلف بها
+  async function editEmployee(employeeId) {
+    const employee = employees.find(emp => emp.id === employeeId);
+    if (!employee) return;
+
+    const name = prompt("اسم الموظف:", employee.name || "");
+    if (name === null) return;
+    if (!name.trim()) {
+      alert("اسم الموظف لا يمكن أن يكون فارغاً.");
+      return;
+    }
+
+    const office = prompt(
+      "المكتب (مكتب عدن أو مكتب لحج):",
+      employee.office || "مكتب عدن"
+    );
+    if (office === null) return;
+    if (!office.trim()) {
+      alert("يرجى إدخال اسم المكتب.");
+      return;
+    }
+
+    const role = prompt(
+      "المهام والبرامج المكلف بها:",
+      employee.role || ""
+    );
+    if (role === null) return;
+
+    const { error } = await db
+      .from("employees")
+      .update({
+        name: name.trim(),
+        office: office.trim(),
+        role: role.trim()
+      })
+      .eq("id", employeeId);
+
+    if (error) {
+      alert("تعذر تحديث بيانات الموظف: " + error.message);
+      return;
+    }
+
+    await loadAll();
+    alert("تم تحديث بيانات الموظف ونشرها في صفحة الموظفين.");
   }
 
   // تحديث قائمة اختيار الموظف في التعديل الشهري
