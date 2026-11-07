@@ -1,3 +1,4 @@
+
 (() => {
   const cfg = window.APP_CONFIG || {};
 
@@ -10,12 +11,11 @@
   const $ = id => document.getElementById(id);
 
   if (!ready) {
-    const msg = "يلزم أولاً إضافة رابط مشروع Supabase ومفتاح anon في ملف config.js.";
+    const msg = "يرجى إضافة رابط Supabase ومفتاح anon في ملف config.js.";
 
-    if ($("connection")) $("connection").textContent = msg;
-    if ($("live")) $("live").textContent = msg;
-    if ($("loginMsg")) $("loginMsg").textContent = msg;
-    if ($("notice")) $("notice").textContent = msg;
+    ["connection", "live", "loginMsg", "notice"].forEach(id => {
+      if ($(id)) $(id).textContent = msg;
+    });
 
     return;
   }
@@ -30,47 +30,79 @@
   let employees = [];
   let roster = [];
   let tasks = [];
-  let currentMonth = "2026-11";
   let notice = "";
   let liveChannel = null;
 
+  let currentMonth = new Date().toISOString().slice(0, 7);
+
   const weekdays = [
-    "الأحد",
-    "الإثنين",
-    "الثلاثاء",
-    "الأربعاء",
-    "الخميس",
-    "الجمعة",
-    "السبت"
+    "الأحد", "الإثنين", "الثلاثاء",
+    "الأربعاء", "الخميس", "الجمعة", "السبت"
   ];
 
-  const monthName = m =>
+  const daysIn = month =>
     new Date(
-      Number(m.slice(0, 4)),
-      Number(m.slice(5, 7)) - 1,
+      Number(month.slice(0, 4)),
+      Number(month.slice(5, 7)),
+      0
+    ).getDate();
+
+  const monthName = month =>
+    new Date(
+      Number(month.slice(0, 4)),
+      Number(month.slice(5, 7)) - 1,
       1
     ).toLocaleDateString("ar", {
       month: "long",
       year: "numeric"
     });
 
-  const daysIn = m =>
-    new Date(
-      Number(m.slice(0, 4)),
-      Number(m.slice(5, 7)),
-      0
-    ).getDate();
-
-  const esc = s =>
-    String(s ?? "").replace(/[&<>"']/g, c => ({
+  const esc = value =>
+    String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;",
       "<": "&lt;",
       ">": "&gt;",
       '"': "&quot;",
       "'": "&#39;"
-    }[c]));
+    }[char]));
 
+  // تجهيز الشهر في صفحة الموظفين
+  function setupEmployeeMonth() {
+    const select = $("month");
+    if (!select) return;
+
+    if (!select.options.length) {
+      const now = new Date();
+
+      for (let i = -1; i < 5; i++) {
+        const date = new Date(
+          now.getFullYear(),
+          now.getMonth() + i,
+          1
+        );
+
+        const value =
+          `${date.getFullYear()}-${String(
+            date.getMonth() + 1
+          ).padStart(2, "0")}`;
+
+        select.add(new Option(monthName(value), value));
+      }
+    }
+
+    if (select.value) {
+      currentMonth = select.value;
+    } else {
+      select.value = currentMonth;
+    }
+  }
+
+  // تحميل بيانات النظام
   async function loadAll() {
+    const month = isManager
+      ? ($("month")?.value || currentMonth)
+      : currentMonth;
+
     const [e, r, t, n] = await Promise.all([
       db.from("employees")
         .select("*")
@@ -79,10 +111,7 @@
 
       db.from("roster_entries")
         .select("*")
-        .eq(
-          "month",
-          isManager ? ($("month").value || currentMonth) : currentMonth
-        ),
+        .eq("month", month),
 
       db.from("tasks")
         .select("*")
@@ -95,8 +124,8 @@
         .maybeSingle()
     ]);
 
-    for (const x of [e, r, t, n]) {
-      if (x.error) throw x.error;
+    for (const result of [e, r, t, n]) {
+      if (result.error) throw result.error;
     }
 
     employees = e.data || [];
@@ -107,7 +136,13 @@
     render();
   }
 
-  function renderRoster(targetHead, targetBody, month, editable) {
+  // عرض جدول الدوام
+  function renderRoster(
+    targetHead,
+    targetBody,
+    month,
+    editable
+  ) {
     if (!targetHead || !targetBody) return;
 
     const count = daysIn(month);
@@ -116,6 +151,7 @@
       <tr>
         <th>م</th>
         <th class="name">الموظف / المكتب</th>
+
         ${Array.from({ length: count }, (_, i) => `
           <th>
             ${i + 1}
@@ -145,30 +181,31 @@
         </td>
 
         ${Array.from({ length: count }, (_, j) => {
-          const d = j + 1;
+          const day = j + 1;
 
-          const rec = roster.find(x =>
-            x.employee_id === emp.id &&
-            x.day === d
+          const record = roster.find(item =>
+            item.employee_id === emp.id &&
+            Number(item.day) === day
           );
 
-          const val = rec?.shift || "—";
+          const value = record?.shift || "—";
 
           const cls =
-            val === "ص" ? "shift-s" :
-            val === "م" ? "shift-m" :
-            val === "off" ? "shift-off" : "";
+            value === "ص" ? "shift-s" :
+            value === "م" ? "shift-m" :
+            value === "off" ? "shift-off" : "";
 
           return `
             <td class="${editable ? "" : "day"}">
               <span
                 class="${cls}"
                 ${editable
-                  ? `data-emp="${esc(emp.id)}" data-day="${d}"
+                  ? `data-emp="${esc(emp.id)}"
+                     data-day="${day}"
                      style="cursor:pointer;padding:5px 7px;border-radius:6px"`
                   : `style="padding:5px 7px;border-radius:6px"`
                 }
-              >${esc(val)}</span>
+              >${esc(value)}</span>
             </td>
           `;
         }).join("")}
@@ -187,58 +224,220 @@
     }
   }
 
+  // عرض الموظفين ومهامهم
   function renderEmployees(target) {
     if (!target) return;
 
-    target.innerHTML = employees.map(e => `
+    target.innerHTML = employees.map(emp => `
       <article class="emp">
-        <b>${esc(e.name)}</b>
-        <div class="muted">${esc(e.office)}</div>
-        <p>${esc(e.role)}</p>
+        <b>${esc(emp.name)}</b>
+        <div class="muted">${esc(emp.office)}</div>
+        <p>${esc(emp.role)}</p>
       </article>
     `).join("");
   }
 
-  function renderTasks() {
-    if (!$("tasks")) return;
+  // تحديث قائمة اختيار الموظف في التعديل الشهري
+  function renderBulkEmployees() {
+    const select = $("bulkEmployee");
+    if (!select) return;
 
-    $("tasks").innerHTML = tasks.length
-      ? tasks.map(t => {
-          const emp = employees.find(e => e.id === t.employee_id);
+    const previousValue = select.value;
+
+    select.innerHTML = `
+      <option value="">اختر الموظف</option>
+      ${employees.map(emp => `
+        <option value="${esc(emp.id)}">
+          ${esc(emp.name)} — ${esc(emp.office)}
+        </option>
+      `).join("")}
+    `;
+
+    if (employees.some(emp => emp.id === previousValue)) {
+      select.value = previousValue;
+    }
+  }
+
+  // تعديل مناوبة يوم واحد
+  async function changeShift(employeeId, day) {
+    const month = $("month").value;
+
+    const record = roster.find(item =>
+      item.employee_id === employeeId &&
+      Number(item.day) === day
+    );
+
+    const oldShift = record?.shift || "م";
+
+    const nextShift = {
+      "م": "ص",
+      "ص": "off",
+      "off": "م"
+    }[oldShift] || "م";
+
+    const { error } = await db
+      .from("roster_entries")
+      .upsert({
+        month,
+        employee_id: employeeId,
+        day,
+        shift: nextShift
+      }, {
+        onConflict: "month,employee_id,day"
+      });
+
+    if (error) {
+      alert("تعذر حفظ المناوبة: " + error.message);
+      return;
+    }
+
+    await loadAll();
+  }
+
+  // تعديل دوام الموظف طوال الشهر بضغطة واحدة
+  async function applyBulkShift() {
+    const employeeId = $("bulkEmployee")?.value;
+    const shift = $("bulkShift")?.value;
+    const month = $("month")?.value;
+    const msg = $("bulkMsg");
+    const button = $("applyBulkShift");
+
+    if (!employeeId) {
+      alert("يرجى اختيار الموظف أولاً.");
+      return;
+    }
+
+    if (!shift || !month) {
+      alert("يرجى اختيار المناوبة والشهر.");
+      return;
+    }
+
+    const employee = employees.find(
+      emp => emp.id === employeeId
+    );
+
+    if (!employee) {
+      alert("لم يتم العثور على الموظف.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `هل تريد تحويل أيام عمل ${employee.name} إلى ${
+        shift === "م" ? "المناوبة المسائية" : "المناوبة الصباحية"
+      } طوال شهر ${monthName(month)}؟\n\n` +
+      "ستبقى أيام الإجازة المسجلة كما هي."
+    );
+
+    if (!confirmed) return;
+
+    const totalDays = daysIn(month);
+    const rows = [];
+
+    // المحافظة على الإجازات فقط
+    // وتحديث جميع أيام العمل الأخرى
+    for (let day = 1; day <= totalDays; day++) {
+      const existing = roster.find(item =>
+        item.employee_id === employeeId &&
+        Number(item.day) === day
+      );
+
+      if (existing?.shift === "off") {
+        continue;
+      }
+
+      rows.push({
+        month,
+        employee_id: employeeId,
+        day,
+        shift
+      });
+    }
+
+    if (!rows.length) {
+      if (msg) {
+        msg.textContent =
+          "جميع أيام الشهر مسجلة كإجازات.";
+      }
+      return;
+    }
+
+    if (button) button.disabled = true;
+    if (msg) msg.textContent = "جارٍ تحديث جدول الدوام...";
+
+    try {
+      const { error } = await db
+        .from("roster_entries")
+        .upsert(rows, {
+          onConflict: "month,employee_id,day"
+        });
+
+      if (error) throw error;
+
+      await loadAll();
+
+      if (msg) {
+        msg.textContent =
+          `تم تحديث ${rows.length} يوم عمل بنجاح، مع المحافظة على الإجازات.`;
+      }
+
+    } catch (error) {
+      if (msg) {
+        msg.textContent =
+          "تعذر تحديث الدوام: " + error.message;
+      }
+
+      console.error(error);
+
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  // عرض إنجازات الموظفين
+  function renderTasks() {
+    const target = $("tasks");
+    if (!target) return;
+
+    target.innerHTML = tasks.length
+      ? tasks.map(task => {
+          const emp = employees.find(
+            e => e.id === task.employee_id
+          );
 
           return `
             <div class="emp" style="margin:8px 0">
               <b>${esc(emp?.name || "موظف")}</b>
-              — ${esc(t.video_name)}
+              — ${esc(task.video_name)}
 
               <div class="muted">
-                البرنامج: ${esc(t.program_name)}
-                · ${new Date(t.created_at).toLocaleString("ar")}
+                البرنامج: ${esc(task.program_name)}
+                ·
+                ${new Date(task.created_at).toLocaleString("ar")}
               </div>
 
               <div class="row" style="margin-top:8px">
                 <span class="pill">
-                  ${t.approved ? "تم الاعتماد" : "بانتظار المراجعة"}
+                  ${task.approved ? "تم الاعتماد" : "بانتظار المراجعة"}
                 </span>
 
-                ${!t.approved
-                  ? `<button data-approve="${t.id}" style="width:auto">
-                       اعتماد الإنجاز
-                     </button>`
-                  : ""
-                }
+                ${!task.approved ? `
+                  <button
+                    data-approve="${esc(task.id)}"
+                    style="width:auto"
+                  >اعتماد الإنجاز</button>
+                ` : ""}
               </div>
             </div>
           `;
         }).join("")
       : "<p class='muted'>لا توجد إنجازات مسجلة حتى الآن.</p>";
 
-    $("tasks").querySelectorAll("[data-approve]").forEach(b => {
-      b.addEventListener("click", async () => {
+    target.querySelectorAll("[data-approve]").forEach(button => {
+      button.addEventListener("click", async () => {
         const { error } = await db
           .from("tasks")
           .update({ approved: true })
-          .eq("id", b.dataset.approve);
+          .eq("id", button.dataset.approve);
 
         if (error) {
           alert(error.message);
@@ -249,11 +448,14 @@
     });
   }
 
+  // تحديث واجهة النظام
   function render() {
     if (isManager) {
       if ($("noticeInput")) {
         $("noticeInput").value =
-          typeof notice === "string" ? notice : JSON.stringify(notice);
+          typeof notice === "string"
+            ? notice
+            : JSON.stringify(notice);
       }
 
       renderRoster(
@@ -264,53 +466,15 @@
       );
 
       renderEmployees($("employees"));
+      renderBulkEmployees();
       renderTasks();
 
-      // تحديث قائمة الموظفين في أداة تعديل الدوام الشهري
-      if ($("bulkEmployee")) {
-        const selected = $("bulkEmployee").value;
-
-        $("bulkEmployee").innerHTML =
-          '<option value="">اختر الموظف</option>' +
-          employees.map(e => `
-            <option value="${esc(e.id)}">
-              ${esc(e.name)} — ${esc(e.office)}
-            </option>
-          `).join("");
-
-        if (employees.some(e => e.id === selected)) {
-          $("bulkEmployee").value = selected;
-        }
-      }
-
     } else {
-      $("notice").textContent =
-        typeof notice === "string" ? notice : JSON.stringify(notice);
-
-      const monthSelect = $("month");
-
-      if (monthSelect && !monthSelect.options.length) {
-        const now = new Date();
-
-        for (let i = -1; i < 4; i++) {
-          const d = new Date(
-            now.getFullYear(),
-            now.getMonth() + i,
-            1
-          );
-
-          const v =
-            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-
-          monthSelect.add(
-            new Option(monthName(v), v)
-          );
-        }
-
-        monthSelect.value =
-          `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
-        currentMonth = monthSelect.value;
+      if ($("notice")) {
+        $("notice").textContent =
+          typeof notice === "string"
+            ? notice
+            : JSON.stringify(notice);
       }
 
       renderRoster(
@@ -322,106 +486,20 @@
 
       renderEmployees($("employees"));
 
-      $("employee").innerHTML = employees.map(e => `
-        <option value="${esc(e.id)}">
-          ${esc(e.name)} — ${esc(e.office)}
-        </option>
-      `).join("");
+      const employeeSelect = $("employee");
+
+      if (employeeSelect) {
+        employeeSelect.innerHTML = employees.map(emp => `
+          <option value="${esc(emp.id)}">
+            ${esc(emp.name)} — ${esc(emp.office)}
+          </option>
+        `).join("");
+      }
     }
   }
 
-  async function changeShift(emp, day) {
-    const old =
-      roster.find(x =>
-        x.employee_id === emp && x.day === day
-      )?.shift || "م";
-
-    const next = {
-      "م": "ص",
-      "ص": "off",
-      "off": "م"
-    }[old] || "م";
-
-    const { error } = await db
-      .from("roster_entries")
-      .upsert({
-        month: $("month").value,
-        employee_id: emp,
-        day,
-        shift: next
-      }, {
-        onConflict: "month,employee_id,day"
-      });
-
-    if (error) {
-      alert("تعذر حفظ المناوبة: " + error.message);
-    } else {
-      await loadAll();
-    }
-  }
-
-  // تعديل جميع أيام العمل لموظف واحد في الشهر المحدد
-  // أيام الإجازة off لا تتغير
-  async function applyBulkShift() {
-    const employeeId = $("bulkEmployee").value;
-    const shift = $("bulkShift").value;
-    const month = $("month").value;
-    const msg = $("bulkMsg");
-
-    if (!employeeId) {
-      alert("يرجى اختيار الموظف أولاً.");
-      return;
-    }
-
-    if (!month) {
-      alert("يرجى اختيار الشهر أولاً.");
-      return;
-    }
-
-    const workingDays = roster.filter(r =>
-      r.employee_id === employeeId &&
-      r.month === month &&
-      r.shift !== "off"
-    );
-
-    if (!workingDays.length) {
-      msg.textContent =
-        "لا توجد أيام عمل مسجلة لهذا الموظف في الشهر المحدد.";
-      return;
-    }
-
-    const rows = workingDays.map(r => ({
-      month: month,
-      employee_id: employeeId,
-      day: r.day,
-      shift: shift
-    }));
-
-    msg.textContent = "جارٍ تحديث الدوام...";
-
-    $("applyBulkShift").disabled = true;
-
-    const { error } = await db
-      .from("roster_entries")
-      .upsert(rows, {
-        onConflict: "month,employee_id,day"
-      });
-
-    $("applyBulkShift").disabled = false;
-
-    if (error) {
-      msg.textContent = "تعذر التعديل: " + error.message;
-      return;
-    }
-
-    msg.textContent =
-      `تم تعديل ${rows.length} يوم عمل بنجاح، مع الحفاظ على أيام الإجازة.`;
-
-    await loadAll();
-  }
-
+  // الاشتراك في التحديثات المباشرة
   function subscribe() {
-    // منع إنشاء اشتراك مكرر
     if (liveChannel) return;
 
     const channelName = isManager
@@ -430,87 +508,87 @@
 
     liveChannel = db.channel(channelName);
 
-    liveChannel
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "employees"
-      }, () => loadAll())
-
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "roster_entries"
-      }, () => loadAll())
-
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "settings"
-      }, () => loadAll())
-
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "tasks"
-      }, () => loadAll())
-
-      .subscribe(status => {
-        const el = $("connection") || $("live");
-
-        if (el) {
-          el.textContent =
-            status === "SUBSCRIBED"
-              ? "متصل — التحديثات المباشرة مفعّلة"
-              : "الاتصال: " + status;
+    [
+      "employees",
+      "roster_entries",
+      "settings",
+      "tasks"
+    ].forEach(table => {
+      liveChannel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table
+        },
+        () => {
+          loadAll().catch(console.error);
         }
-
-        if (
-          status === "CHANNEL_ERROR" ||
-          status === "TIMED_OUT"
-        ) {
-          console.error(
-            "Realtime connection error:",
-            status
-          );
-        }
-      });
-  }
-
-  async function startEmployees() {
-    $("month").addEventListener("change", async () => {
-      currentMonth = $("month").value;
-      await loadAll();
+      );
     });
 
-    $("taskForm").addEventListener("submit", async ev => {
-      ev.preventDefault();
+    liveChannel.subscribe(status => {
+      const target = $("connection") || $("live");
 
-      $("formMsg").textContent = "جارٍ الإرسال...";
+      if (target) {
+        target.textContent =
+          status === "SUBSCRIBED"
+            ? "متصل — التحديثات المباشرة مفعّلة"
+            : "الاتصال: " + status;
+      }
 
-      const { error } = await db
-        .from("tasks")
-        .insert({
-          employee_id: $("employee").value,
-          video_name: $("video").value.trim(),
-          program_name: $("program").value.trim()
-        });
-
-      $("formMsg").textContent = error
-        ? "تعذر الإرسال: " + error.message
-        : "تم إرسال إنجازك إلى المدير بنجاح.";
-
-      if (!error) {
-        $("taskForm").reset();
-        await loadAll();
+      if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT"
+      ) {
+        console.error("Realtime error:", status);
       }
     });
+  }
+
+  // تشغيل صفحة الموظفين
+  async function startEmployees() {
+    setupEmployeeMonth();
+
+    if ($("month")) {
+      $("month").addEventListener("change", async () => {
+        currentMonth = $("month").value;
+        await loadAll();
+      });
+    }
+
+    if ($("taskForm")) {
+      $("taskForm").addEventListener("submit", async event => {
+        event.preventDefault();
+
+        $("formMsg").textContent = "جارٍ الإرسال...";
+
+        const { error } = await db
+          .from("tasks")
+          .insert({
+            employee_id: $("employee").value,
+            video_name: $("video").value.trim(),
+            program_name: $("program").value.trim()
+          });
+
+        $("formMsg").textContent = error
+          ? "تعذر الإرسال: " + error.message
+          : "تم إرسال إنجازك إلى المدير بنجاح.";
+
+        if (!error) {
+          $("taskForm").reset();
+          await loadAll();
+        }
+      });
+    }
 
     await loadAll();
     subscribe();
   }
 
+  // تشغيل لوحة المدير
   async function startManager() {
+
     $("loginBtn").addEventListener("click", async () => {
       $("loginMsg").textContent = "جارٍ التحقق...";
 
@@ -534,10 +612,19 @@
     });
 
     $("month").addEventListener("change", async () => {
-      $("bulkMsg").textContent = "";
+      currentMonth = $("month").value;
       await loadAll();
     });
 
+    // زر التعديل الشهري
+    if ($("applyBulkShift")) {
+      $("applyBulkShift").addEventListener(
+        "click",
+        applyBulkShift
+      );
+    }
+
+    // حفظ الملاحظة الرئيسية
     $("saveNotice").addEventListener("click", async () => {
       const { error } = await db
         .from("settings")
@@ -555,30 +642,31 @@
       }
     });
 
+    // توليد جدول تلقائي
     $("generate").addEventListener("click", async () => {
-      const m = $("month").value;
+      const month = $("month").value;
       const rows = [];
 
-      employees.forEach((e, idx) => {
-        for (let d = 1; d <= daysIn(m); d++) {
+      employees.forEach((emp, index) => {
+        for (let day = 1; day <= daysIn(month); day++) {
           const weekday = new Date(
-            Number(m.slice(0, 4)),
-            Number(m.slice(5, 7)) - 1,
-            d
+            Number(month.slice(0, 4)),
+            Number(month.slice(5, 7)) - 1,
+            day
           ).getDay();
 
           const shift =
-            weekday === 5 && (d + idx) % 2 === 0
+            weekday === 5 && (day + index) % 2 === 0
               ? "off"
-              : d % 2 === 0
+              : day % 2 === 0
                 ? "ص"
                 : "م";
 
           rows.push({
-            month: m,
-            employee_id: e.id,
-            day: d,
-            shift: shift
+            month,
+            employee_id: emp.id,
+            day,
+            shift
           });
         }
       });
@@ -592,17 +680,11 @@
       if (error) {
         alert(error.message);
       } else {
-        $("bulkMsg").textContent = "";
         await loadAll();
       }
     });
 
-    // ربط زر تعديل الدوام الشهري
-    $("applyBulkShift").addEventListener(
-      "click",
-      applyBulkShift
-    );
-
+    // إضافة موظف
     $("addEmployee").addEventListener("click", async () => {
       const name = prompt("اسم الموظف:");
       if (!name) return;
@@ -638,10 +720,11 @@
     await checkAdmin();
 
     db.auth.onAuthStateChange(() => {
-      checkAdmin();
+      checkAdmin().catch(console.error);
     });
   }
 
+  // التحقق من صلاحية المدير
   async function checkAdmin() {
     const {
       data: { user }
@@ -662,8 +745,14 @@
 
     if (error || !data) {
       await db.auth.signOut();
+
+      $("loginBox").classList.remove("hidden");
+      $("adminApp").classList.add("hidden");
+      $("logout").classList.add("hidden");
+
       $("loginMsg").textContent =
         "هذا الحساب غير مخوّل كمدير للنظام.";
+
       return;
     }
 
@@ -674,18 +763,24 @@
     try {
       await loadAll();
       subscribe();
-    } catch (e) {
-      alert(e.message);
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
     }
   }
 
+  // بدء النظام
   if (isManager) {
-    startManager().catch(e => console.error(e));
+    startManager().catch(error => {
+      console.error(error);
+    });
   } else {
-    startEmployees().catch(e => {
+    startEmployees().catch(error => {
       if ($("live")) {
-        $("live").textContent = e.message;
+        $("live").textContent = error.message;
       }
+      console.error(error);
     });
   }
+
 })();
