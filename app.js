@@ -14,6 +14,7 @@
   const db = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
   const isManager = !!$("adminApp");
   let employees = [], roster = [], tasks = [], currentMonth = "2026-11", notice = "";
+let liveChannel = null;
   const weekdays = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
   const monthName = m => new Date(Number(m.slice(0,4)),Number(m.slice(5,7))-1,1).toLocaleDateString("ar",{month:"long",year:"numeric"});
   const daysIn = m => new Date(Number(m.slice(0,4)),Number(m.slice(5,7)),0).getDate();
@@ -64,14 +65,55 @@
     const {error}=await db.from("roster_entries").upsert({month:$("month").value,employee_id:emp,day,shift:next},{onConflict:"month,employee_id,day"});
     if(error)alert("تعذر حفظ المناوبة: "+error.message);else await loadAll();
   }
-  function subscribe(){
-    db.channel("montage-live").on("postgres_changes",{event:"*",schema:"public",table:"employees"},loadAll)
-      .on("postgres_changes",{event:"*",schema:"public",table:"roster_entries"},loadAll)
-      .on("postgres_changes",{event:"*",schema:"public",table:"settings"},loadAll)
-      .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},loadAll).subscribe(status=>{
-        const el=$("connection")||$("live");if(el)el.textContent=status==="SUBSCRIBED"?"متصل — التحديثات المباشرة مفعّلة":"الاتصال: "+status;
-      });
-  }
+  function subscribe() {
+  // منع إنشاء اشتراك مكرر
+  if (liveChannel) return;
+
+  const channelName = isManager
+    ? "montage-live-manager"
+    : "montage-live-employees";
+
+  liveChannel = db.channel(channelName);
+
+  liveChannel
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "employees"
+    }, () => loadAll())
+
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "roster_entries"
+    }, () => loadAll())
+
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "settings"
+    }, () => loadAll())
+
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "tasks"
+    }, () => loadAll())
+
+    .subscribe(status => {
+      const el = $("connection") || $("live");
+
+      if (el) {
+        el.textContent = status === "SUBSCRIBED"
+          ? "متصل — التحديثات المباشرة مفعّلة"
+          : "الاتصال: " + status;
+      }
+
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.error("Realtime connection error:", status);
+      }
+    });
+}
   async function startEmployees(){
     $("month").addEventListener("change",async()=>{currentMonth=$("month").value;await loadAll()});
     $("taskForm").addEventListener("submit",async ev=>{
