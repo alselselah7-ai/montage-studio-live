@@ -128,11 +128,9 @@
       for (let day = 1; day <= daysIn(month); day++) {
         if (currentKeys.has(`${employee.id}:${day}`)) continue;
 
-        // كرر نمط أيام الشهر السابق بحسب رقم اليوم، ولفّ النمط عند اختلاف عدد الأيام.
         const sourceDay = ((day - 1) % previousDays) + 1;
         let shift = previousPattern.get(sourceDay);
 
-        // إذا كان اليوم المقابل غير مسجل، ابحث عن أقرب يوم سابق مسجل.
         if (!shift && previousPattern.size) {
           for (let offset = 1; offset <= previousDays; offset++) {
             const candidateDay = ((sourceDay - offset - 1 + previousDays) % previousDays) + 1;
@@ -143,7 +141,6 @@
           }
         }
 
-        // عند عدم وجود جدول سابق لهذا الموظف، استخدم النمط التلقائي الأساسي.
         if (!shift) {
           const weekday = new Date(
             Number(month.slice(0, 4)),
@@ -197,7 +194,6 @@
       ? ($("month")?.value || currentMonth)
       : currentMonth;
 
-    // تحميل الموظفين أولاً لأن إنشاء جدول الشهر يحتاج قائمة الموظفين النشطين.
     const employeeResult = await db.from("employees")
       .select("*")
       .eq("active", true)
@@ -206,18 +202,20 @@
     if (employeeResult.error) throw employeeResult.error;
     employees = employeeResult.data || [];
 
-    // عند فتح الشهر الحالي لأول مرة، انسخ نمط الشهر السابق تلقائياً.
     await ensureCurrentMonthRoster(month);
 
+    // إنجازات الفيديو خاصة بالمدير فقط؛ صفحة الموظفين لا تستعلم عن جدول tasks.
     const [r, t, n] = await Promise.all([
       db.from("roster_entries")
         .select("*")
         .eq("month", month),
 
-      db.from("tasks")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100),
+      isManager
+        ? db.from("tasks")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [], error: null }),
 
       db.from("settings")
         .select("value")
@@ -230,13 +228,13 @@
     }
 
     roster = r.data || [];
-    tasks = t.data || [];
+    tasks = isManager ? (t.data || []) : [];
     notice = n.data?.value || "";
 
     render();
   }
 
-  // عرض جدول الدوام
+  // عرض جدول الدوام: الأيام صفوف والموظفون أعمدة.
   function renderRoster(
     targetHead,
     targetBody,
@@ -247,7 +245,6 @@
 
     const count = daysIn(month);
 
-    // الموظفون أعمدة، وأيام الشهر صفوف لتكون المناوبات أوضح وأسهل قراءة.
     targetHead.innerHTML = `
       <tr>
         <th class="roster-day-head">اليوم</th>
@@ -496,8 +493,6 @@
     const totalDays = daysIn(month);
     const rows = [];
 
-    // المحافظة على الإجازات فقط
-    // وتحديث جميع أيام العمل الأخرى
     for (let day = 1; day <= totalDays; day++) {
       const existing = roster.find(item =>
         item.employee_id === employeeId &&
@@ -518,8 +513,7 @@
 
     if (!rows.length) {
       if (msg) {
-        msg.textContent =
-          "جميع أيام الشهر مسجلة كإجازات.";
+        msg.textContent = "جميع أيام الشهر مسجلة كإجازات.";
       }
       return;
     }
@@ -545,8 +539,7 @@
 
     } catch (error) {
       if (msg) {
-        msg.textContent =
-          "تعذر تحديث الدوام: " + error.message;
+        msg.textContent = "تعذر تحديث الدوام: " + error.message;
       }
 
       console.error(error);
@@ -556,10 +549,15 @@
     }
   }
 
-  // عرض إنجازات الموظفين
+  // عرض إنجازات الموظفين - المدير فقط
   function renderTasks() {
     const target = $("tasks");
     if (!target) return;
+
+    if (!isManager) {
+      target.innerHTML = "";
+      return;
+    }
 
     target.innerHTML = tasks.length
       ? tasks.map(task => {
@@ -713,6 +711,13 @@
   async function startEmployees() {
     setupEmployeeMonth();
 
+    if ($("month")) {
+      $("month").addEventListener("change", async () => {
+        currentMonth = $("month").value;
+        await loadAll();
+      });
+    }
+
     if ($("taskForm")) {
       $("taskForm").addEventListener("submit", async event => {
         event.preventDefault();
@@ -746,9 +751,6 @@
   // تشغيل لوحة المدير
   async function startManager() {
 
-    currentMonth = getCurrentMonth();
-    if ($("month")) $("month").value = currentMonth;
-
     $("loginBtn").addEventListener("click", async () => {
       $("loginMsg").textContent = "جارٍ التحقق...";
 
@@ -776,7 +778,6 @@
       await loadAll();
     });
 
-    // زر التعديل الشهري
     if ($("applyBulkShift")) {
       $("applyBulkShift").addEventListener(
         "click",
