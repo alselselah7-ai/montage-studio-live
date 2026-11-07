@@ -247,73 +247,71 @@
 
     const count = daysIn(month);
 
+    // الموظفون أعمدة، وأيام الشهر صفوف لتكون المناوبات أوضح وأسهل قراءة.
     targetHead.innerHTML = `
       <tr>
-        <th>م</th>
-        <th class="name">الموظف / المكتب</th>
-
-        ${Array.from({ length: count }, (_, i) => `
-          <th>
-            ${i+1}
-<small style="font-size:10px;color:#a7c5e8;font-weight:600">
-  ${weekdays[
-    new Date(
-      Number(month.slice(0, 4)),
-      Number(month.slice(5, 7)) - 1,
-      i + 1
-    ).getDay()
-  ]}
-</small>
+        <th class="roster-day-head">اليوم</th>
+        ${employees.map(emp => `
+          <th class="roster-employee-head">
+            <b>${esc(emp.name)}</b>
+            <small>${esc(emp.office || "")}</small>
           </th>
         `).join("")}
       </tr>
     `;
 
-    targetBody.innerHTML = employees.map((emp, i) => `
-      <tr>
-        <td>${i + 1}</td>
+    targetBody.innerHTML = Array.from({ length: count }, (_, index) => {
+      const day = index + 1;
+      const weekday = weekdays[
+        new Date(
+          Number(month.slice(0, 4)),
+          Number(month.slice(5, 7)) - 1,
+          day
+        ).getDay()
+      ];
 
-        <td class="name">
-          <b>${esc(emp.name)}</b>
-          <br>
-          <small>${esc(emp.office)}</small>
-        </td>
+      const cells = employees.map(emp => {
+        const record = roster.find(item =>
+          item.employee_id === emp.id &&
+          Number(item.day) === day
+        );
 
-        ${Array.from({ length: count }, (_, j) => {
-          const day = j + 1;
+        const value = record?.shift || "—";
 
-          const record = roster.find(item =>
-            item.employee_id === emp.id &&
-            Number(item.day) === day
-          );
+        const shiftStyle =
+          value === "م"
+            ? "background:#0284c7;color:#fff;"
+            : value === "ص"
+              ? "background:#ea580c;color:#fff;"
+              : value === "off"
+                ? "background:#dc2626;color:#fff;border:2px solid #fecaca;box-shadow:0 0 0 2px rgba(220,38,38,.28);"
+                : "background:#334155;color:#cbd5e1;";
 
-          const value = record?.shift || "—";
+        return `
+          <td class="roster-shift-cell">
+            <span
+              class="shift-badge"
+              ${editable
+                ? `data-emp="${esc(emp.id)}"
+                   data-day="${day}"
+                   style="${shiftStyle}cursor:pointer;display:inline-block;min-width:44px;padding:7px 8px;border-radius:7px;font-size:14px;font-weight:800;"`
+                : `style="${shiftStyle}display:inline-block;min-width:44px;padding:7px 8px;border-radius:7px;font-size:14px;font-weight:800;"`
+              }
+            >${esc(value)}</span>
+          </td>
+        `;
+      }).join("");
 
-          const shiftStyle =
-            value === "م"
-              ? "background:#0284c7;color:#fff;"
-              : value === "ص"
-                ? "background:#ea580c;color:#fff;"
-                : value === "off"
-                  ? "background:#dc2626;color:#fff;border:2px solid #fecaca;box-shadow:0 0 0 2px rgba(220,38,38,.28);"
-                  : "background:#334155;color:#cbd5e1;";
-
-          return `
-            <td class="${editable ? "" : "day"}">
-              <span
-                class="shift-badge"
-                ${editable
-                  ? `data-emp="${esc(emp.id)}"
-                     data-day="${day}"
-                     style="${shiftStyle}cursor:pointer;display:inline-block;min-width:24px;padding:3px 2px;border-radius:6px;font-size:11px;font-weight:700;"`
-                  : `style="${shiftStyle}display:inline-block;min-width:24px;padding:3px 2px;border-radius:6px;font-size:11px;font-weight:700;"`
-                }
-              >${esc(value)}</span>
-            </td>
-          `;
-        }).join("")}
-      </tr>
-    `).join("");
+      return `
+        <tr>
+          <th class="roster-day-cell">
+            <b>${day}</b>
+            <small>${weekday}</small>
+          </th>
+          ${cells}
+        </tr>
+      `;
+    }).join("");
 
     if (editable) {
       targetBody.querySelectorAll("[data-emp]").forEach(el => {
