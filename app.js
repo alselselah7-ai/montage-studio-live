@@ -295,7 +295,7 @@
               : value === "ص"
                 ? "background:#ea580c;color:#fff;"
                 : value === "off"
-                  ? "background:#facc15;color:#111827;border:2px solid #fef08a;box-shadow:0 0 0 2px rgba(250,204,21,.22);"
+                  ? "background:#dc2626;color:#fff;border:2px solid #fecaca;box-shadow:0 0 0 2px rgba(220,38,38,.28);"
                   : "background:#334155;color:#cbd5e1;";
 
           return `
@@ -305,8 +305,8 @@
                 ${editable
                   ? `data-emp="${esc(emp.id)}"
                      data-day="${day}"
-                     style="${shiftStyle}cursor:pointer;display:inline-block;min-width:34px;padding:5px 7px;border-radius:7px;font-weight:700;"`
-                  : `style="${shiftStyle}display:inline-block;min-width:34px;padding:5px 7px;border-radius:7px;font-weight:700;"`
+                     style="${shiftStyle}cursor:pointer;display:inline-block;min-width:24px;padding:3px 2px;border-radius:6px;font-size:11px;font-weight:700;"`
+                  : `style="${shiftStyle}display:inline-block;min-width:24px;padding:3px 2px;border-radius:6px;font-size:11px;font-weight:700;"`
                 }
               >${esc(value)}</span>
             </td>
