@@ -24,11 +24,16 @@ button.green{background:#059669}
 button.orange{background:#d97706;color:#111827}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.tablewrap{width:100%;overflow-x:hidden}
-table{border-collapse:collapse;width:100%;min-width:0;table-layout:fixed}
-th,td{padding:4px 1px;border-bottom:1px solid #334155;text-align:center;font-size:11px;overflow:hidden}
+.tablewrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:auto}
+th,td{padding:8px 6px;border-bottom:1px solid #334155;text-align:center;font-size:13px;overflow:hidden;min-width:76px}
 th{background:#0f172a;position:sticky;top:0}
-.name{text-align:right;white-space:nowrap;width:118px;overflow:hidden;text-overflow:ellipsis}
+.roster-day-head,.roster-day-cell{min-width:88px;position:sticky;right:0;z-index:2;background:#1e293b}
+.roster-employee-head{min-width:112px;max-width:150px;white-space:normal;line-height:1.5}
+.roster-employee-head small,.roster-day-cell small{display:block;color:#cbd5e1;font-size:11px;font-weight:500}
+.roster-shift-cell{min-width:76px;padding:7px 5px}
+
+.name{text-align:right;white-space:nowrap;min-width:118px;overflow:hidden;text-overflow:ellipsis}
 .shift{min-width:0;padding:3px 1px}
 .m{background:#0284c7}
 .s{background:#ea580c}
