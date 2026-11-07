@@ -33,7 +33,18 @@
   let notice = "";
   let liveChannel = null;
 
-  let currentMonth = new Date().toISOString().slice(0, 7);
+  const getCurrentMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const shiftMonth = (month, offset) => {
+    const [year, monthNumber] = month.split("-").map(Number);
+    const date = new Date(year, monthNumber - 1 + offset, 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  let currentMonth = getCurrentMonth();
 
   const weekdays = [
     "الأحد", "الإثنين", "الثلاثاء",
@@ -66,35 +77,118 @@
       "'": "&#39;"
     }[char]));
 
-  // تجهيز الشهر في صفحة الموظفين
+  // صفحة الموظفين تعرض الشهر الحالي فقط دون إتاحة الأشهر السابقة.
   function setupEmployeeMonth() {
     const select = $("month");
-    if (!select) return;
+    const label = $("monthLabel");
+    currentMonth = getCurrentMonth();
 
-    if (!select.options.length) {
-      const now = new Date();
-
-      for (let i = -1; i < 5; i++) {
-        const date = new Date(
-          now.getFullYear(),
-          now.getMonth() + i,
-          1
-        );
-
-        const value =
-          `${date.getFullYear()}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}`;
-
-        select.add(new Option(monthName(value), value));
-      }
-    }
-
-    if (select.value) {
-      currentMonth = select.value;
-    } else {
+    if (select) {
+      select.innerHTML = "";
+      select.add(new Option(monthName(currentMonth), currentMonth));
       select.value = currentMonth;
+      select.disabled = true;
     }
+
+    if (label) label.textContent = monthName(currentMonth);
+  }
+
+  // إنشاء جدول الشهر الحالي تلقائياً اعتماداً على آخر جدول للشهر السابق.
+  // الأيام الموجودة لا تُستبدل، حتى لا تضيع تعديلات الشهر الحالي.
+  async function ensureCurrentMonthRoster(month) {
+    if (month !== getCurrentMonth()) return;
+
+    const previous = shiftMonth(month, -1);
+    const [currentResult, previousResult] = await Promise.all([
+      db.from("roster_entries").select("employee_id,day,shift").eq("month", month),
+      db.from("roster_entries").select("employee_id,day,shift").eq("month", previous)
+    ]);
+
+    if (currentResult.error) throw currentResult.error;
+    if (previousResult.error) throw previousResult.error;
+
+    const existing = currentResult.data || [];
+    const previousRows = previousResult.data || [];
+    const currentKeys = new Set(existing.map(row => `${row.employee_id}:${row.day}`));
+    const previousByEmployee = new Map();
+
+    previousRows.forEach(row => {
+      if (!previousByEmployee.has(row.employee_id)) {
+        previousByEmployee.set(row.employee_id, new Map());
+      }
+      previousByEmployee.get(row.employee_id).set(Number(row.day), row.shift);
+    });
+
+    const previousDays = daysIn(previous);
+    const rowsToInsert = [];
+
+    employees.forEach((employee, employeeIndex) => {
+      const previousPattern = previousByEmployee.get(employee.id) || new Map();
+
+      for (let day = 1; day <= daysIn(month); day++) {
+        if (currentKeys.has(`${employee.id}:${day}`)) continue;
+
+        // كرر نمط أيام الشهر السابق بحسب رقم اليوم، ولفّ النمط عند اختلاف عدد الأيام.
+        const sourceDay = ((day - 1) % previousDays) + 1;
+        let shift = previousPattern.get(sourceDay);
+
+        // إذا كان اليوم المقابل غير مسجل، ابحث عن أقرب يوم سابق مسجل.
+        if (!shift && previousPattern.size) {
+          for (let offset = 1; offset <= previousDays; offset++) {
+            const candidateDay = ((sourceDay - offset - 1 + previousDays) % previousDays) + 1;
+            if (previousPattern.has(candidateDay)) {
+              shift = previousPattern.get(candidateDay);
+              break;
+            }
+          }
+        }
+
+        // عند عدم وجود جدول سابق لهذا الموظف، استخدم النمط التلقائي الأساسي.
+        if (!shift) {
+          const weekday = new Date(
+            Number(month.slice(0, 4)),
+            Number(month.slice(5, 7)) - 1,
+            day
+          ).getDay();
+          shift = weekday === 5 && (day + employeeIndex) % 2 === 0
+            ? "off"
+            : day % 2 === 0 ? "ص" : "م";
+        }
+
+        rowsToInsert.push({ month, employee_id: employee.id, day, shift });
+      }
+    });
+
+    if (!rowsToInsert.length) return;
+
+    const { error } = await db.from("roster_entries").upsert(rowsToInsert, {
+      onConflict: "month,employee_id,day",
+      ignoreDuplicates: true
+    });
+    if (error) throw error;
+  }
+
+  // إذا بقيت صفحة الموظفين مفتوحة عند دخول شهر جديد، حدّثها تلقائياً.
+  function watchEmployeeMonthRollover() {
+    if (isManager) return;
+
+    const checkMonth = async () => {
+      const actualMonth = getCurrentMonth();
+      if (actualMonth === currentMonth) return;
+      currentMonth = actualMonth;
+      setupEmployeeMonth();
+      try {
+        await loadAll();
+      } catch (error) {
+        console.error("Month rollover error:", error);
+      }
+    };
+
+    window.addEventListener("focus", checkMonth);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) checkMonth();
+    });
+    setInterval(checkMonth, 60 * 1000);
   }
 
   // تحميل بيانات النظام
@@ -103,12 +197,19 @@
       ? ($("month")?.value || currentMonth)
       : currentMonth;
 
-    const [e, r, t, n] = await Promise.all([
-      db.from("employees")
-        .select("*")
-        .eq("active", true)
-        .order("name"),
+    // تحميل الموظفين أولاً لأن إنشاء جدول الشهر يحتاج قائمة الموظفين النشطين.
+    const employeeResult = await db.from("employees")
+      .select("*")
+      .eq("active", true)
+      .order("name");
 
+    if (employeeResult.error) throw employeeResult.error;
+    employees = employeeResult.data || [];
+
+    // عند فتح الشهر الحالي لأول مرة، انسخ نمط الشهر السابق تلقائياً.
+    await ensureCurrentMonthRoster(month);
+
+    const [r, t, n] = await Promise.all([
       db.from("roster_entries")
         .select("*")
         .eq("month", month),
@@ -124,11 +225,10 @@
         .maybeSingle()
     ]);
 
-    for (const result of [e, r, t, n]) {
+    for (const result of [r, t, n]) {
       if (result.error) throw result.error;
     }
 
-    employees = e.data || [];
     roster = r.data || [];
     tasks = t.data || [];
     notice = n.data?.value || "";
@@ -195,7 +295,7 @@
               : value === "ص"
                 ? "background:#ea580c;color:#fff;"
                 : value === "off"
-                  ? "background:#64748b;color:#fff;"
+                  ? "background:#facc15;color:#111827;border:2px solid #fef08a;box-shadow:0 0 0 2px rgba(250,204,21,.22);"
                   : "background:#334155;color:#cbd5e1;";
 
           return `
@@ -615,13 +715,6 @@
   async function startEmployees() {
     setupEmployeeMonth();
 
-    if ($("month")) {
-      $("month").addEventListener("change", async () => {
-        currentMonth = $("month").value;
-        await loadAll();
-      });
-    }
-
     if ($("taskForm")) {
       $("taskForm").addEventListener("submit", async event => {
         event.preventDefault();
@@ -649,10 +742,14 @@
 
     await loadAll();
     subscribe();
+    watchEmployeeMonthRollover();
   }
 
   // تشغيل لوحة المدير
   async function startManager() {
+
+    currentMonth = getCurrentMonth();
+    if ($("month")) $("month").value = currentMonth;
 
     $("loginBtn").addEventListener("click", async () => {
       $("loginMsg").textContent = "جارٍ التحقق...";
