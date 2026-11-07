@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>إدارة قسم المونتاج</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1120;color:#e5e7eb;font-family:Cairo,Arial,sans-serif}header{background:#111c31;padding:18px 4%;border-bottom:1px solid #334155;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.wrap{max-width:1400px;margin:auto;padding:22px 4%}.card{background:#172338;border:1px solid #334155;border-radius:16px;padding:18px;margin-bottom:16px}.muted{color:#9ca3af;font-size:13px}h1{font-size:21px;margin:0}h2{font-size:18px;margin:0 0 14px}button,input,select{font:inherit;border-radius:9px;padding:9px 12px;border:1px solid #475569;background:#0f172a;color:#f8fafc}button{cursor:pointer;background:#4f46e5;border:0;font-weight:700}button.secondary{background:#334155}button.green{background:#059669}button.orange{background:#d97706;color:#111827}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:700px}th,td{padding:9px;border-bottom:1px solid #334155;text-align:center;font-size:13px}th{background:#0f172a;position:sticky;top:0}.name{text-align:right;white-space:nowrap}.shift{min-width:36px;padding:6px 4px}.m{background:#0284c7}.s{background:#ea580c}.off{background:#475569}.notice{border-color:#d97706;background:#302313}.hidden{display:none!important}.status{font-size:12px;color:#a7f3d0}.danger{color:#fca5a5}.login{max-width:420px;margin:8vh auto}.field{display:grid;gap:5px;margin:10px 0}.field input,.field select{width:100%}@media(max-width:600px){header{padding:14px}.wrap{padding:14px}.card{padding:13px}}
+</style></head>
+<body>
+<header><div><h1>استوديو المونتاج — لوحة المدير</h1><div class="muted">إدارة الدوام والمهام والإنجازات</div></div><div class="row"><span id="connection" class="status">جارٍ الاتصال...</span><button id="logout" class="secondary hidden">تسجيل الخروج</button></div></header>
+<main class="wrap">
+<section id="loginBox" class="card login"><h2>دخول المدير</h2><p class="muted">هذه الصفحة خاصة. لا يمكن للموظفين تعديل بيانات النظام أو الدخول إلى لوحة الإدارة دون حساب مدير معتمد.</p><div class="field"><label>البريد الإلكتروني</label><input id="email" type="email" autocomplete="username"></div><div class="field"><label>كلمة المرور</label><input id="password" type="password" autocomplete="current-password"></div><button id="loginBtn">دخول</button><p id="loginMsg" class="muted"></p></section>
+<section id="adminApp" class="hidden">
+<div class="card notice"><div class="row" style="justify-content:space-between"><h2>📌 الملاحظة الرئيسية للموظفين</h2><span class="muted">تظهر مباشرة في صفحة الموظفين</span></div><div class="row"><input id="noticeInput" style="flex:1;min-width:240px"><button id="saveNotice" class="orange">حفظ الملاحظة</button></div></div>
+<div class="card"><div class="row" style="justify-content:space-between"><h2>🗓️ جدول دوام المونتاج</h2><div class="row"><input id="month" type="month" value="2026-11"><button id="generate" class="secondary">توليد جدول تلقائي</button></div></div><p class="muted">اضغط على مناوبة أي يوم لتغييرها بالتتابع: مسائي ← صباحي ← إجازة.</p><div class="tablewrap"><table><thead id="rosterHead"></thead><tbody id="rosterBody"></tbody></table></div></div>
+<div class="card"><div class="row" style="justify-content:space-between"><h2>📋 الموظفون والمهام الروتينية</h2><button id="addEmployee" class="secondary">إضافة موظف</button></div><div id="employees" class="grid"></div></div>
+<div class="card"><h2>🔔 إنجازات الموظفين الواردة</h2><div id="tasks"></div></div>
+</section></main>
+<script src="./app.js"></script></body></html>
