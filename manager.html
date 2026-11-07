@@ -24,12 +24,12 @@ button.green{background:#059669}
 button.orange{background:#d97706;color:#111827}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.tablewrap{overflow:auto}
-table{border-collapse:collapse;width:100%;min-width:700px}
-th,td{padding:9px;border-bottom:1px solid #334155;text-align:center;font-size:13px}
+.tablewrap{width:100%;overflow-x:hidden}
+table{border-collapse:collapse;width:100%;min-width:0;table-layout:fixed}
+th,td{padding:4px 1px;border-bottom:1px solid #334155;text-align:center;font-size:11px;overflow:hidden}
 th{background:#0f172a;position:sticky;top:0}
-.name{text-align:right;white-space:nowrap}
-.shift{min-width:36px;padding:6px 4px}
+.name{text-align:right;white-space:nowrap;width:118px;overflow:hidden;text-overflow:ellipsis}
+.shift{min-width:0;padding:3px 1px}
 .m{background:#0284c7}
 .s{background:#ea580c}
 .off{background:#475569}
@@ -47,8 +47,10 @@ th{background:#0f172a;position:sticky;top:0}
 .shift-legend span{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700}
 .shift-legend .legend-evening{background:#0284c7;color:#fff}
 .shift-legend .legend-morning{background:#ea580c;color:#fff}
-.shift-legend .legend-off{background:#facc15;color:#111827;border:2px solid #fef08a}
+.shift-legend .legend-off{background:#dc2626;color:#fff;border:2px solid #fecaca}
 @media(max-width:600px){
+  th,td{padding:3px 0;font-size:9px}
+  .name{width:82px;font-size:10px}
   header{padding:14px}
   .wrap{padding:14px}
   .card{padding:13px}
