@@ -47,7 +47,7 @@ th{background:#0f172a;position:sticky;top:0}
 .shift-legend span{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700}
 .shift-legend .legend-evening{background:#0284c7;color:#fff}
 .shift-legend .legend-morning{background:#ea580c;color:#fff}
-.shift-legend .legend-off{background:#64748b;color:#fff}
+.shift-legend .legend-off{background:#facc15;color:#111827;border:2px solid #fef08a}
 @media(max-width:600px){
   header{padding:14px}
   .wrap{padding:14px}
@@ -106,12 +106,12 @@ th{background:#0f172a;position:sticky;top:0}
     <div class="row" style="justify-content:space-between">
       <h2>🗓️ جدول دوام المونتاج</h2>
       <div class="row">
-        <input id="month" type="month" value="2026-11">
+        <input id="month" type="month">
         <button id="generate" class="secondary">توليد جدول تلقائي</button>
       </div>
     </div>
 
-    <p class="muted">اضغط على مناوبة أي يوم لتغييرها بالتتابع: مسائي ← صباحي ← إجازة.</p>
+    <p class="muted">اضغط على مناوبة أي يوم لتغييرها بالتتابع: مسائي ← صباحي ← إجازة. يبدأ العرض بالشهر الحالي تلقائياً، ويمكنك اختيار أي شهر سابق لمراجعة جدولِه.</p>
     <div class="shift-legend" aria-label="دليل ألوان المناوبات">
       <span class="legend-evening">م — مسائي</span>
       <span class="legend-morning">ص — صباحي</span>
