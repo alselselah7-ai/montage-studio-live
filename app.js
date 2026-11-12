@@ -1,4 +1,3 @@
-
 (() => {
   const cfg = window.APP_CONFIG || {};
 
@@ -418,40 +417,88 @@
     }
   }
 
-  // تعديل مناوبة يوم واحد
+  // تعديل مناوبة يوم واحد — مع إظهار أي خطأ بدلاً من توقف النقر بصمت.
+  const pendingShiftChanges = new Set();
+
   async function changeShift(employeeId, day) {
-    const month = $("month").value;
+    const changeKey = `${employeeId}:${day}`;
 
-    const record = roster.find(item =>
-      item.employee_id === employeeId &&
-      Number(item.day) === day
-    );
+    if (pendingShiftChanges.has(changeKey)) return;
 
-    const oldShift = record?.shift || "م";
+    const monthInput = $("month");
+    const month = monthInput?.value || currentMonth;
+    const dayNumber = Number(day);
 
-    const nextShift = {
-      "م": "ص",
-      "ص": "off",
-      "off": "م"
-    }[oldShift] || "م";
-
-    const { error } = await db
-      .from("roster_entries")
-      .upsert({
-        month,
-        employee_id: employeeId,
-        day,
-        shift: nextShift
-      }, {
-        onConflict: "month,employee_id,day"
-      });
-
-    if (error) {
-      alert("تعذر حفظ المناوبة: " + error.message);
+    if (!isManager) {
+      alert("تعديل المناوبات متاح من صفحة المدير فقط.");
       return;
     }
 
-    await loadAll();
+    if (!employeeId || !Number.isInteger(dayNumber) ||
+        dayNumber < 1 || dayNumber > daysIn(month)) {
+      alert("تعذر تحديد الموظف أو يوم المناوبة. أعد تحميل الصفحة وجرب مرة أخرى.");
+      return;
+    }
+
+    pendingShiftChanges.add(changeKey);
+
+    const clickedCell = [...document.querySelectorAll("#rosterBody [data-emp]")]
+      .find(el => el.dataset.emp === String(employeeId) &&
+                  Number(el.dataset.day) === dayNumber);
+
+    if (clickedCell) {
+      clickedCell.style.opacity = "0.55";
+      clickedCell.style.pointerEvents = "none";
+      clickedCell.title = "جارٍ حفظ المناوبة...";
+    }
+
+    try {
+      const record = roster.find(item =>
+        String(item.employee_id) === String(employeeId) &&
+        Number(item.day) === dayNumber
+      );
+
+      const oldShift = record?.shift || "م";
+      const nextShift = {
+        "م": "ص",
+        "ص": "off",
+        "off": "م"
+      }[oldShift] || "م";
+
+      const { error } = await db
+        .from("roster_entries")
+        .upsert({
+          month,
+          employee_id: employeeId,
+          day: dayNumber,
+          shift: nextShift
+        }, {
+          onConflict: "month,employee_id,day"
+        });
+
+      if (error) throw error;
+
+      await loadAll();
+
+    } catch (error) {
+      console.error("تعذر تعديل المناوبة:", error);
+      alert(
+        "لم يتم حفظ المناوبة.\n\n" +
+        (error?.message || error?.details || String(error))
+      );
+    } finally {
+      pendingShiftChanges.delete(changeKey);
+
+      const cell = [...document.querySelectorAll("#rosterBody [data-emp]")]
+        .find(el => el.dataset.emp === String(employeeId) &&
+                    Number(el.dataset.day) === dayNumber);
+
+      if (cell) {
+        cell.style.opacity = "";
+        cell.style.pointerEvents = "";
+        cell.title = "";
+      }
+    }
   }
 
   // تعديل دوام الموظف طوال الشهر بضغطة واحدة
